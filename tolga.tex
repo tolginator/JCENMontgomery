@@ -13,6 +13,8 @@
 \smartqed  % flush right qed marks, e.g. at end of proof
 %
 \usepackage{graphicx}
+\usepackage[linesnumbered,ruled]{algorithm2e}
+\usepackage{listings,multicol,multirow}
 %
 % \usepackage{mathptmx}      % use Times fonts if available on your TeX system
 %
@@ -36,14 +38,20 @@
 
 %\titlerunning{Short form of title}        % if too long for running head
 
-\author{Tolga Acar}
+
+\author{Tolga Acar \and Erdinc Ozturk}
 
 %\authorrunning{Short form of author list} % if too long for running head
 
-\institute{T. Acar \at
+\institute{
+T. Acar \at
               Microsoft \\
-              \email{tolga@microsoft.com}           %  \\
+              \email{tolga@microsoft.com}            \\
               \emph{One Microsoft Way, Redmond, WA 98052}
+\and 
+Erdinc Ozturk \at
+              Istanbul Commerce University \\
+              \email{erdinco@gmail.com}
 }
 
 \date{Received: date / Accepted: date }
@@ -128,12 +136,8 @@ of leakage studies, and has been analyzed by Walter \cite{W08:Leakage}.
 
 \section{Algorithms for Montgomery Multiplication}
 
-We describe and analyze several algortihms~\cite{KAK96:Analyzing}. The
-analyses and actual performance results indicate that the Coarsely
-Integrated Operand Scanning (CIOS) method is the most efficient of all
-five algorithms, at least for the general class of processor
-considered.
-
+We describe and analyze several algortihms~\cite{KAK96:Analyzing}. 
+%The analyses and actual performance results indicate that the Coarsely Integrated Operand Scanning (CIOS) method is the most efficient of all five algorithms, at least for the general class of processorconsidered.
 Various hardware algorithms for modular multiplication have been
 proposed and some of them have been realized
 \cite{B89:A,T91:A,OK91:A}.  Modular exponentiation algorithms using
@@ -160,6 +164,39 @@ intrinsically fast operation on general-purpose computers, e.g.,
 signal processors and microprocessors; this leads to a simpler
 implementation than ordinary modular multiplication, which is
 typically faster as well \cite{NMR95:Can}.
+
+\subsection{Multi-Precision Multiplication}
+Multiplication of two numbers that are smaller than the machine word-size is trivial for any machine that includes a core multiplier. Usually, the core multiplier that is utilized by the machine can multiply two word-sized numbers with a 1 cycle/multiply throughput. However, multiplication of numbers that are larger than the machine word size becomes a challenge for any programmer, as the size of the operands grow. Multi-precision arithmetic involves operations on numbers that are larger than the machine word size. Since the most time-consuming and challenging arithmetic operation is multiplication, we deal with multi-precision multiplication operation in this section. For the remainder of the paper, we use the term large number for any number that is larger than the machine word size.
+
+There are multiple methods of efficiently multiplying two large numbers. Karatsuba-Ofman Algoritm \cite{karatsuba}, FFT-Based Multiplication Algorithm \cite{Schonhage1971} are examples that can be listed among the classical school-book multiplication algorithm. Even though these complicated algorithms have a potential for more efficient implementations, we will examine and utilize the classical school-book multiplication algorithm for the scope and purpose of this paper. 
+
+We assume that the numbers to be multiplied are of the same size, which is a more realistic case for public-key applications. However, the methods that we discuss here can be applied to multiplication of different-sized numbers. For simplicity, we pick our word size as 64 bits, as it is recentşy the most common case for processors. It should also be noted that our methods can be applied to multiplications with different word sizes. Assume we multiply two $n$-word numbers $A$ and $B$ where $A = (A_{n-1}A_{n-2}...A_1A_0)_b$ and $B = (B_{n-1}B_{n-2}...B_1B_0)_b$ and $b=2^{64}$. Algorithm \ref{alg:mult} is detailing how to realize the multiplication of these two integers. 
+
+\begin{algorithm}
+\label{alg:mult}
+\caption{Classical school-book multiplication algorithm}
+\SetKwInOut{Input}{Input}
+\SetKwInOut{Output}{Output}
+\underline{MontMul} $(A,B,N)$\;
+\Input{$k$-bit integers $A=(A_{n-1}...A_1A_0)_b$, $B=(B_{n-1}...B_1B_0)_b$, $b=2^{64}$}
+\Output{$C = AB$}
+$\textit{t} \gets 0$ ($t=(t_{2n-1}...t_1t_0)_b$)\\
+\For{i from 0 to n-1}{
+	$\textit{$(t_{i+n}t_{i+n-1}...t_{i+1}t_i)_b$} \gets \textit{$(0t_{i+n-1}...t_{i+1}t_i)_b+A_iBb^i$}$ \\
+
+}
+\end{algorithm}
+
+Algorithm \ref{alg:mult} is illustrated in Figure \ref{fig:mult} for the multiplication of two 512-bit numbers.
+
+\begin{figure}
+\centering
+  \includegraphics[scale=0.7]{mul.eps}
+\caption{Classical Multiplication of two 512-bit numbers.  }
+\label{fig:mult}
+\end{figure}
+
+In this figure, we call each $A_iB$ multiplication a diagonal, as the detailed multiplication figure looks like a diagonal as can be seen in Figure \ref{fig:diag0} later in the paper.
 
 \subsection{Montgomery Multiplication}
 
@@ -434,9 +471,9 @@ $2(s+1)$ reads, and $s+1$ writes.
 A brief inspection of the SOS method, based on our techniques for
 counting the number of operations, shows that it requires $2s^2+s$
 multiplications, $4s^2+4s+2$ additions, $6s^2+7s+3$ reads, and
-$2s^2+6s+2$ writes. (See Section \ref{conclusion} for
-discussion of how to count the number of operations required by the
-{\tt ADD} function.)  The SOS method requires a total of $2s+2$ words
+$2s^2+6s+2$ writes. 
+%(See Section \ref{conclusion} for discussion of how to count the number of operations required by the {\tt ADD} function.) 
+The SOS method requires a total of $2s+2$ words
 for temporary results to store the $(2s+1)$-word array $t$ and the
 one-word variable $m$.  The SOS method is illustrated in
 Figure~\ref{sos} for $s=4$.
@@ -695,8 +732,9 @@ The FIPS method requires $2s^2+s$ multiplications, $6s^2+2s+2$
 additions, $9s^2+8s+2$ reads, and $5s^2+8s+1$ writes. The number of
 additions, reads and writes is somewhat more than the previous
 methods, but the number of multiplications is the same.  The method
-may have considerable benefits on digital signal processors, as
-discussed in Section \ref{conclusion}. Note that many of the
+may have considerable benefits on digital signal processors.
+%, as discussed in Section \ref{conclusion}. 
+Note that many of the
 reads and writes are for the accumulator words, which may be in
 registers.  The space required is $s+3$ words.
 
@@ -877,144 +915,326 @@ Instr. & 32-bit & 64-bit & SIMD2-32 \\
 The 32-bit and 64-bit counts reflect an ALU-only implementation as described previously where the word size is 32 bits.
 SIMD2-32 means two-way SIMD with 32-bit words a supported by Intel and ARM CPUs.
 
-\subsection{Results and Conclusions}
-\label{conclusion}
+\section{Software Implementations}
+\label{sec:softimp}
 
-The algorithms presented in this chapter require the same number of
-single-precision multiplications, but the number of additions,
-reads and writes are slightly different.  There seems to be a lower
-bound of $4s^2+4s+2$ for additions that the SOS and CIOS
-methods reach.  The number of operations and the
-amount of temporary memory  are summarized in
-Table~\ref{requirements}. The total number of operations is
-calculated by counting each operation within a loop, and multiplying
-this number by the iteration count. As an example we illustrate the
-calculation for the CIOS method in Table~\ref{cios-operations}.
+In this section, we will present detailed information about implementation of Modular Multiplication on software. To achieve efficient implementations, we utilize the integer instruction extensions of Intel which was added to new generation processor cores \cite{largeint}. Implementation was done using Intel's x64 assembly, as multiplication operations require efficient carry chain implementations and this is only possible via assembly coding.  
 
-\begin{table*}
-\caption{The time and space requirements of the methods.}
-\label{requirements}
-\begin{tabular}{|l||c|l|l|l||r|} \hline
-Method & Multiplications & Additions & Reads & Writes & Space \\
-\hline\hline
-SOS    & $2s^2+s$ & $4s^2+4s+2$ & $6s^2+7s+3$ & $2s^2+6s+2$ & $2s+2$ \\
-CIOS   & $2s^2+s$ & $4s^2+4s+2$ & $6s^2+7s+2$ & $2s^2+5s+1$ & $s+3$ \\
-FIOS   & $2s^2+s$ & $5s^2+3s+2$ & $7s^2+5s+2$ & $3s^2+4s+1$ & $s+3$ \\
-FIPS   & $2s^2+s$ & $6s^2+2s+2$ & $9s^2+8s+2$ & $5s^2+8s+1$ & $s+3$ \\
-CIHS   & $2s^2+s$ & $4s^2+4s+2$ & $6.5s^2+6.5s+2$ & $3s^2+5s+1$ & $s+3$ \\
+Figure \ref{fig:mult} shows only a breakdown of multiplication of large numbers. Each $A_iB$ multiplication needs to be examined more closely, as they are multiplication of a large number with a single word. It should be noted that first diagonal is treated differently than the rest of the diagonals, as the result of the first diagonal does not need to be accumulated but the results of the rest of the diagonals need to be accumulated with the previous results. Figure \ref{fig:diag0} gives detailed explanation of multiplication of the first diagonal of a 512x64 bit multiplication operation.
+
+\begin{figure}[ht]
+\centering
+  \includegraphics[scale=0.7]{multdiag0.eps}
+\caption{First diagonal of a 512x64 bit multiplication operation}
+\label{fig:diag0}
+\end{figure}
+
+Here, each multiplication is a 64x64 core multiplication and each result is a 128-bit integer. Low 64 bits of each result is stored in rax ad high 64 bits of each result is stored in rdx. A code snippet for the first diagonal is given below.
+
+
+\begin{verbatim}
+mov rbp, [A + 8*0]
+mov rax, [B + 8*0]
+mul rbp
+
+mov [C + 8*0], rax
+mov R0, rdx
+
+mov rax, [B + 8*1]
+mul rbp
+add R0, rax
+adc rdx, 0
+mov R1, rdx
+...
+...
+mov rax, [B + 8*6]
+mul rbp
+add R5, rax
+adc rdx, 0
+mov R6, rdx
+
+mov rax, [B + 8*7]
+mul rbp
+add R6, rax
+adc rdx, 0
+mov R7, rdx
+\end{verbatim}
+
+Here, it can be seen that the result C0 is stored in memory, as it will not change after this diagonal is finished. Results C1 through C8 are stored in registers R0 through R7, to avoid load-store operations. $mul$ instruction operates on two 64-bit integers. One of these integers are implicitly stored in register $rax$ and the other is stored in any register that will be given as input to the mul instruction. The output of mul instruction is stored in registers rdx and rax. 
+\begin{verbatim}
+mul src
+{rdx,rax} = src*rax
+\end{verbatim}
+defines the multiply operation. This instruction has two main flaws: Requires the outputs to be moved to other registers once the multiplication is completed, as the next multiplication will destroy the current result and the mul instruction destroys all of the flags. Intel introduced a new instruction mulx, which operates as follows:
+\begin{verbatim}
+mulx dest_hi, dest_lo, src1
+dest_hi:dest_lo = src1 * rdx.
+\end{verbatim}
+This mulx instruction was introduced to 4th generation Intel cores (formerly known as Haswell) and in addition to being able to define the destination registers, it does not destroy the carry flag, which allows a better code sequence as shown below for the first diagonal of the multiplication.
+\begin{verbatim}
+mov rdx , [A + 8*0]
+mulx R0 , rax , [B + 8*0]
+mov [C + 8*0] , rax
+mulx R1 , rax , [B + 8*1]
+add R0 , rax
+mulx R2 , rax , [B + 8*2]
+adc R1 , rax
+...
+...
+mulx R6 , rax , [B + 8*6]
+adc R5 , rax
+mulx R7 , rax , [B + 8*7]
+adc R6 , rax
+adc R7 , 0
+\end{verbatim}
+
+After the first diagonal, we have an intermediate result and next results of diagonal multiplication need to be accumulated onto this intermediate result. Figure \ref{fig:diag1} gives detailed explanation of multiplication of the second diagonal of a 512x64 bit multiplication operation. The rest of the diagonals behave exactly the same way.
+
+\begin{figure}[ht]
+\centering
+  \includegraphics[scale=0.7]{multdiag1.eps}
+\caption{Second diagonal of a 512x64 bit multiplication operation}
+\label{fig:diag1}
+\end{figure}
+
+It should be noted that after each multiplication operation, there are three 64-bit numbers to be added: high part of the previous result, low part of the current result and corresponding intermediate result. This is realized with code sequence below. 
+
+\begin{verbatim}
+mov rbp, [A + 8*0]
+mov rax, [B + 8*0]
+mul rbp	
+add	R0, rax
+adc rdx, 0
+mov [C + 8*0], R0
+mov rbx, rdx
+
+mov rax, [B + 8*1]
+mul rbp
+mov R0, rdx
+add R1, rax
+adc R0, 0
+add R1, rbx
+adc R0, 0
+...
+...
+mov rax, [B + 8*7]
+mul rbp
+mov R0, rdx
+add R7, rax
+adc R0, 0
+add R7, rbx
+adc R0, 0
+\end{verbatim}
+
+It can be seen from Figure \ref{fig:diag1} is that there are actually two seperate carry chains. In order to be able to run these two carry chains in parallel, Intel introduced two more instructions: adcx and adox. These instructions are described as follows:
+
+\begin{verbatim}
+adcx dest/src1, src2
+adox dest/src1, src2
+\end{verbatim}
+adcx instruction operates exactly same way as adc instruction, but does not alter the overflow flag (OF). adox instruction operates exactly same way as adc instruction, but uses the OF as its carry flag and does not change the carry flag (CF). This allows parallel execution of two seperate carry chains. This is realized with code sequence below. 
+
+\begin{verbatim}
+xor rax , rax
+mov rdx , [A + 8*0]
+mulx rbx , rbp , [B + 8*0]
+adox R0 , rbp
+adcx R1 , rbx
+mov [C + 8*0] , R0
+mulx rbx , R0 , [B + 8*1]
+adox R0 , R1
+adcx R2 , rbx
+...
+...
+mulx rbx , R5 , [B + 8*6]
+adox R5 , R6
+adcx R7 , rbx
+mulx rbx , R6 , [B + 8*7]
+adox R6 , R7
+adcx rbx , rax
+adox rbx , rax
+mov R7 , rbx
+\end{verbatim}
+
+In this section, we gave detailed explanations of multiplication operations. As noted below, reduction operation behaves exactly same as the multiplication operation and could be realized very efficiently using the same techniques described in this section. For proof of concept, we only gave explanations for the large multiplication operation. 
+
+\section{Implementation Results}
+\label{sec:res}
+
+\begin{table*}[ht]
+\caption{Implementation Results}
+\label{table:impres}
+\begin{center}
+\begin{tabular}{|c|c|c|c|c|c|}
 \hline
-\end{tabular}
-\end{table*}
-
-We note that the \texttt{ADD(x[i],C)} function, which implements the
-operation \texttt{x[i] := x[i] + C} including the carry propagation,
-requires one memory read (\texttt{x[i]}), one addition
-(\texttt{x[i]+C}) and one memory write (\texttt{x[i]:=}) operation
-during the first step.  Considering the carry propagation from this
-addition, on average one additional memory read, one addition, and one
-memory write will be done in addition to the branching and loop
-instructions.  Thus, the \texttt{ADD} function requires two
-memory reads, two additions, and two memory writes in our analysis.
-
-\begin{table*}
-\caption{Calculating the operations of the CIOS method.}
-\label{cios-operations}
-\small
-\begin{tabular}{|l|c|c|c|c|c|}
+\multicolumn{2}{|c|}{}	& \multicolumn{2}{c|}{$4^{th}$ Generation CPU} & \multicolumn{2}{c|}{$6^{th}$ Generation CPU} \\
+\multicolumn{2}{|c|}{}	& \multicolumn{2}{c|}{i7-4770} & \multicolumn{2}{c|}{i7-6700HQ} \\
+\cline{3-6}
+\multicolumn{2}{|c|}{}	& Latency & Cycle/mul & Latency & Cycle/mul \\
 \hline
-& \multicolumn{4}{c|}{\small Operation} & \\
-\cline{2-5}
-{\small\bf STATEMENT} &
-\small Mult & \small Add & \small Read & \small Write &
-  \small Iterations \\ \hline
-\scriptsize\verb%for i=0 to s-1% &
-- & - & - & - & -  \\
-\scriptsize\verb%  C := 0% &
-0 & 0 & 0 & 0 & $ s$\\
-\scriptsize\verb%  for j=0 to s-1% &
-- & - & - & - & - \\
-\scriptsize\verb%    (C,S) := t[j] + b[j]*a[i] + C% &
-1 & 2 & 3 & 0 & $s^2$ \\
-\scriptsize\verb%    t[j] := S% &
-0 & 0 & 0 & 1 & $s^2$ \\
-\scriptsize\verb%  (C,S) := t[s] + C% &
-0 & 1 & 1 & 0 & $s$ \\
-\scriptsize\verb%  t[s] := S% &
-0 & 0 & 0 & 1 & $s$ \\
-\scriptsize\verb%  t[s+1] := C% &
-0 & 0 & 0 & 1 & $s$ \\
-\scriptsize\verb%  m := t[0]*n'[0] mod W% &
-1 & 0 & 2 & 1 & $s$ \\
-\scriptsize\verb%  (C,S) := t[0] + m*n[0]% &
-1 & 1 & 3 & 0 & $s$ \\
-\scriptsize\verb%  for j=1 to s-1% &
-- & - & - & - & - \\
-\scriptsize\verb%    (C,S) := t[j] + m*n[j] + C% &
-1 & 2 & 3 & 0 & $s(s-1)$  \\
-\scriptsize\verb%    t[j-1] := S% &
-0 & 0 & 0 & 1 & $s(s-1)$ \\
-\scriptsize\verb%  (C,S) := t[s] + C% &
-0 & 1 & 1 & 0 & $s$ \\
-\scriptsize\verb%  t[s-1] := S% &
-0 & 0 & 0 & 1 & $s$ \\
-\scriptsize\verb%  t[s] := t[s+1] + C% &
-0 & 1 & 1 & 1 & $s$  \\
-\small Final Subtraction &
-0 & $ 2(s+1)$ & $ 2(s+1)$ & $ s+1$ & 1  \\
+ & pre-HSW ISA & 134 & 2.09 & 133 & 2.08 \\
 \cline{2-6}
-& $2s^2+s$ & $4s^2+4s+2$ & $6s^2+7s+2$ & $2s^2+5s+1$ & \\ \hline
+512x512 Multiplication & with mulx & 126 & 1.96 & 123 & 1.92 \\
+\cline{2-6}
+ & with adcx/adox &  &  & 95 & 1.48 \\
+\hline
+ & pre-HSW ISA & 317 & 2.33 & 276 & 2.03 \\
+\cline{2-6}
+512x512 Modular Multiplication & with mulx & 270 & 1.99 & 266 & 1.96 \\
+\cline{2-6}
+ & with adcx/adox &  &  & 195 & 1.43 \\
+\hline
 \end{tabular}
+\end{center}
 \end{table*}
 
-Our counting is a first-order approximation; we are not
-taking into account the full use of registers to store intermediate
-values, cache size in the data and instruction misses, and the special
-instructions such as multiply and accumulate.
-We have also not counted loop overhead, pointer arithmetic, and the
-like, which would undoubtedly affect performance.
-Implementation results are published in \cite{KAK96:Analyzing}.
+We implemented Montgomery Multiplication and Montgomery Reduction using x64 Intel Assembly Language. We utilized instruction extensions targeting public-key acceleration. We ran our codes on 4th generation i7-4770 CPU running on 3.4 GHz and 6th generation i7-6700HQ cPU running on 2.6 GHz for benchmarking. We disabled Turbo Boost for accurate results. Results are shown in Table \ref{table:impres}. We realized 3 different implementations for Montgomery Multiplication of 2 512-bit numbers. First implementation does not utilize any instruction extensions, which we call pre-HSW ISA (Instruction Set Architecture). Second implementation utilizes mulx instruction and third implementation utilizes adcx/adox instructions.
 
 
-In the C version of the functions, single-precision multiplications
-are done by dividing them into two half words.  The C version has more
-overhead compared to the assembler version, in which one-word
-multiplicationd are carried out using a single assembler instruction.
-The assembler version of the {\tt ADD} function is optimized to use
-one register for addition and another register for address
-computation.  The propagation of the carry is performed using the
-carry flag.
 
-The CIOS and FIOS methods are similar to
-one another in their use of embedded shifting and interleaving the
-products $a_i\cdot b$ and $m\cdot n_j$. The only difference is that
-CIOS method computes the partial product $a_i\cdot b$ by
-using a separate $j$-loop. Then, the accumulation of $m\cdot n_j$ to
-this partial product is performed in the succeeding $j$-loop.
-The FIOS method combines the computation of partial
-product $a_i\cdot b$ and accumulation of $a_i\cdot b$ and $m\cdot n_j$
-in one single $j$-loop, thereby obligating the use of the {\tt ADD}
-function for propagation of two separate carries.
 
-The CIOS algorithm operated faster on Intel processors with non-SSE
-instructions compared to the other Montgomery multiplication
-algorithms, especially when implemented in assembly language. However,
-on other classes of processors, a different algorithm may be
-preferable.  For instance, on a digital signal processor, we have
-often found the FIPS method to be better because it exploits the
-\textit{multiply-accumulate} architecture typical with such processors,
-where a set of products are added together. On such architectures, the
-three words $t[0]$, $t[1]$ and $t[2]$ are stored in a single hardware
-accumulator, and the product \texttt{a[j]*b[i-j]} in the FIPS $j$-loop
-can be added directly to the accumulator, which makes the $j$-loop
-very fast.
+\section{Conclusion}
+\label{sec:conc}
+We examined and explained Montgomery Reduction Algoritm and its variations that were designed for efficiency. We implemented Montgomery Multiplication and Montgomery Reduction Algorithms utilizing new instruction set extensions of Intel Core CPUS. From the implementation results and even from the description of the Algorithm, it can be seen that Montgomery approach is a very effective method for realizing efficient modular multiplication operations.
 
-On a general-purpose processor, the CIOS and the FIOS algorithms seem
-like the best choices. They are simple and require relatively fewer
-additions and fewer assignments. 
+%\subsection{Results and Conclusions}
+%\label{conclusion}
+%
+%The algorithms presented in this chapter require the same number of
+%single-precision multiplications, but the number of additions,
+%reads and writes are slightly different.  There seems to be a lower
+%bound of $4s^2+4s+2$ for additions that the SOS and CIOS
+%methods reach.  The number of operations and the
+%amount of temporary memory  are summarized in
+%Table~\ref{requirements}. The total number of operations is
+%calculated by counting each operation within a loop, and multiplying
+%this number by the iteration count. As an example we illustrate the
+%calculation for the CIOS method in Table~\ref{cios-operations}.
+%
+%\begin{table*}
+%\caption{The time and space requirements of the methods.}
+%\label{requirements}
+%\begin{tabular}{|l||c|l|l|l||r|} \hline
+%Method & Multiplications & Additions & Reads & Writes & Space \\
+%\hline\hline
+%SOS    & $2s^2+s$ & $4s^2+4s+2$ & $6s^2+7s+3$ & $2s^2+6s+2$ & $2s+2$ \\
+%CIOS   & $2s^2+s$ & $4s^2+4s+2$ & $6s^2+7s+2$ & $2s^2+5s+1$ & $s+3$ \\
+%FIOS   & $2s^2+s$ & $5s^2+3s+2$ & $7s^2+5s+2$ & $3s^2+4s+1$ & $s+3$ \\
+%FIPS   & $2s^2+s$ & $6s^2+2s+2$ & $9s^2+8s+2$ & $5s^2+8s+1$ & $s+3$ \\
+%CIHS   & $2s^2+s$ & $4s^2+4s+2$ & $6.5s^2+6.5s+2$ & $3s^2+5s+1$ & $s+3$ \\
+%\hline
+%\end{tabular}
+%\end{table*}
+%
+%We note that the \texttt{ADD(x[i],C)} function, which implements the
+%operation \texttt{x[i] := x[i] + C} including the carry propagation,
+%requires one memory read (\texttt{x[i]}), one addition
+%(\texttt{x[i]+C}) and one memory write (\texttt{x[i]:=}) operation
+%during the first step.  Considering the carry propagation from this
+%addition, on average one additional memory read, one addition, and one
+%memory write will be done in addition to the branching and loop
+%instructions.  Thus, the \texttt{ADD} function requires two
+%memory reads, two additions, and two memory writes in our analysis.
+%
+%\begin{table*}
+%\caption{Calculating the operations of the CIOS method.}
+%\label{cios-operations}
+%\small
+%\begin{tabular}{|l|c|c|c|c|c|}
+%\hline
+%& \multicolumn{4}{c|}{\small Operation} & \\
+%\cline{2-5}
+%{\small\bf STATEMENT} &
+%\small Mult & \small Add & \small Read & \small Write &
+%  \small Iterations \\ \hline
+%\scriptsize\verb%for i=0 to s-1% &
+%- & - & - & - & -  \\
+%\scriptsize\verb%  C := 0% &
+%0 & 0 & 0 & 0 & $ s$\\
+%\scriptsize\verb%  for j=0 to s-1% &
+%- & - & - & - & - \\
+%\scriptsize\verb%    (C,S) := t[j] + b[j]*a[i] + C% &
+%1 & 2 & 3 & 0 & $s^2$ \\
+%\scriptsize\verb%    t[j] := S% &
+%0 & 0 & 0 & 1 & $s^2$ \\
+%\scriptsize\verb%  (C,S) := t[s] + C% &
+%0 & 1 & 1 & 0 & $s$ \\
+%\scriptsize\verb%  t[s] := S% &
+%0 & 0 & 0 & 1 & $s$ \\
+%\scriptsize\verb%  t[s+1] := C% &
+%0 & 0 & 0 & 1 & $s$ \\
+%\scriptsize\verb%  m := t[0]*n'[0] mod W% &
+%1 & 0 & 2 & 1 & $s$ \\
+%\scriptsize\verb%  (C,S) := t[0] + m*n[0]% &
+%1 & 1 & 3 & 0 & $s$ \\
+%\scriptsize\verb%  for j=1 to s-1% &
+%- & - & - & - & - \\
+%\scriptsize\verb%    (C,S) := t[j] + m*n[j] + C% &
+%1 & 2 & 3 & 0 & $s(s-1)$  \\
+%\scriptsize\verb%    t[j-1] := S% &
+%0 & 0 & 0 & 1 & $s(s-1)$ \\
+%\scriptsize\verb%  (C,S) := t[s] + C% &
+%0 & 1 & 1 & 0 & $s$ \\
+%\scriptsize\verb%  t[s-1] := S% &
+%0 & 0 & 0 & 1 & $s$ \\
+%\scriptsize\verb%  t[s] := t[s+1] + C% &
+%0 & 1 & 1 & 1 & $s$  \\
+%\small Final Subtraction &
+%0 & $ 2(s+1)$ & $ 2(s+1)$ & $ s+1$ & 1  \\
+%\cline{2-6}
+%& $2s^2+s$ & $4s^2+4s+2$ & $6s^2+7s+2$ & $2s^2+5s+1$ & \\ \hline
+%\end{tabular}
+%\end{table*}
+%
+%Our counting is a first-order approximation; we are not
+%taking into account the full use of registers to store intermediate
+%values, cache size in the data and instruction misses, and the special
+%instructions such as multiply and accumulate.
+%We have also not counted loop overhead, pointer arithmetic, and the
+%like, which would undoubtedly affect performance.
+%Implementation results are published in \cite{KAK96:Analyzing}.
+%
+%
+%In the C version of the functions, single-precision multiplications
+%are done by dividing them into two half words.  The C version has more
+%overhead compared to the assembler version, in which one-word
+%multiplicationd are carried out using a single assembler instruction.
+%The assembler version of the {\tt ADD} function is optimized to use
+%one register for addition and another register for address
+%computation.  The propagation of the carry is performed using the
+%carry flag.
+%
+%The CIOS and FIOS methods are similar to
+%one another in their use of embedded shifting and interleaving the
+%products $a_i\cdot b$ and $m\cdot n_j$. The only difference is that
+%CIOS method computes the partial product $a_i\cdot b$ by
+%using a separate $j$-loop. Then, the accumulation of $m\cdot n_j$ to
+%this partial product is performed in the succeeding $j$-loop.
+%The FIOS method combines the computation of partial
+%product $a_i\cdot b$ and accumulation of $a_i\cdot b$ and $m\cdot n_j$
+%in one single $j$-loop, thereby obligating the use of the {\tt ADD}
+%function for propagation of two separate carries.
+%
+%The CIOS algorithm operated faster on Intel processors with non-SSE
+%instructions compared to the other Montgomery multiplication
+%algorithms, especially when implemented in assembly language. However,
+%on other classes of processors, a different algorithm may be
+%preferable.  For instance, on a digital signal processor, we have
+%often found the FIPS method to be better because it exploits the
+%\textit{multiply-accumulate} architecture typical with such processors,
+%where a set of products are added together. On such architectures, the
+%three words $t[0]$, $t[1]$ and $t[2]$ are stored in a single hardware
+%accumulator, and the product \texttt{a[j]*b[i-j]} in the FIPS $j$-loop
+%can be added directly to the accumulator, which makes the $j$-loop
+%very fast.
+%
+%On a general-purpose processor, the CIOS and the FIOS algorithms seem
+%like the best choices. They are simple and require relatively fewer
+%additions and fewer assignments. 
 
 
 \begin{acknowledgements}
-The author expresses his thanks to Dan Shumow and Greg Zaverucha for their vectorized
+The authors express their thanks to Dan Shumow and Greg Zaverucha for their vectorized
 algorithm descriptions.
 \end{acknowledgements}
 
