@@ -166,11 +166,11 @@ implementation than ordinary modular multiplication, which is
 typically faster as well \cite{NMR95:Can}.
 
 \subsection{Multi-Precision Multiplication}
-Multiplication of two numbers that are smaller than the machine word-size is trivial for any machine that includes a core multiplier. Usually, the core multiplier that is utilized by the machine can multiply two word-sized numbers with a 1 cycle/multiply throughput. However, multiplication of numbers that are larger than the machine word size becomes a challenge for any programmer, as the size of the operands grow. Multi-precision arithmetic involves operations on numbers that are larger than the machine word size. Since the most time-consuming and challenging arithmetic operation is multiplication, we deal with multi-precision multiplication operation in this section. For the remainder of the paper, we use the term large number for any number that is larger than the machine word size.
+Multiplication of two numbers smaller than the machine word-size is trivial for any machine with a core multiplier. Usually, the machine's core multiplier can multiply two word-sized numbers with a 1 cycle/multiply throughput. However, multiplication of numbers larger than the machine word size becomes a challenge for any programmer as the size of the operands grow. Multi-precision arithmetic involves operations on numbers larger than the machine word size. Since multiplication is a very time-consuming and challenging arithmetic operation, we deal with multi-precision multiplication operation in this section. In the remainder of the paper, we define a large number as any value that doesn't fit in a machine word.
 
-There are multiple methods of efficiently multiplying two large numbers. Karatsuba-Ofman Algoritm \cite{karatsuba}, FFT-Based Multiplication Algorithm \cite{Schonhage1971} are examples that can be listed among the classical school-book multiplication algorithm. Even though these complicated algorithms have a potential for more efficient implementations, we will examine and utilize the classical school-book multiplication algorithm for the scope and purpose of this paper. 
+There are multiple methods of efficiently multiplying two large numbers. Karatsuba-Ofman Algoritm \cite{karatsuba} and FFT-Based Multiplication Algorithm \cite{Schonhage1971} are examples that can be listed among the classical school-book multiplication algorithms. Even though these complicated algorithms have potential for more efficient implementations, we focus on the classical school-book multiplication algorithm. 
 
-We assume that the numbers to be multiplied are of the same size, which is a more realistic case for public-key applications. However, the methods that we discuss here can be applied to multiplication of different-sized numbers. For simplicity, we pick our word size as 64 bits, as it is recentşy the most common case for processors. It should also be noted that our methods can be applied to multiplications with different word sizes. Assume we multiply two $n$-word numbers $A$ and $B$ where $A = (A_{n-1}A_{n-2}...A_1A_0)_b$ and $B = (B_{n-1}B_{n-2}...B_1B_0)_b$ and $b=2^{64}$. Algorithm \ref{alg:mult} is detailing how to realize the multiplication of these two integers. 
+We assume that the multiplicant and multiplier have the same length, which is a more realistic case for public-key applications. However, the methods discussed here can be easily adapted for different-sized numbers. For simplicity, we pick the 64-bit word size common in modern processors without loss of generality. Assume we multiply two $n$-word numbers $A$ and $B$ where $A = (A_{n-1}A_{n-2}...A_1A_0)_b$ and $B = (B_{n-1}B_{n-2}...B_1B_0)_b$ and $b=2^{64}$. Multiplication of two unsigned integers are given in Algorithm \ref{alg:mult}. 
 
 \begin{algorithm}
 \label{alg:mult}
@@ -188,6 +188,8 @@ $\textit{t} \gets 0$ ($t=(t_{2n-1}...t_1t_0)_b$)\\
 \end{algorithm}
 
 Algorithm \ref{alg:mult} is illustrated in Figure \ref{fig:mult} for the multiplication of two 512-bit numbers.
+%
+We use the term \textit{diagonal} when referring to $A_iB$ since the multiplication looks like a diagonal in Figure \ref{fig:diag0} later in the paper.
 
 \begin{figure}
 \centering
@@ -195,8 +197,6 @@ Algorithm \ref{alg:mult} is illustrated in Figure \ref{fig:mult} for the multipl
 \caption{Classical Multiplication of two 512-bit numbers.  }
 \label{fig:mult}
 \end{figure}
-
-In this figure, we call each $A_iB$ multiplication a diagonal, as the detailed multiplication figure looks like a diagonal as can be seen in Figure \ref{fig:diag0} later in the paper.
 
 \subsection{Montgomery Multiplication}
 
@@ -918,9 +918,15 @@ SIMD2-32 means two-way SIMD with 32-bit words a supported by Intel and ARM CPUs.
 \section{Software Implementations}
 \label{sec:softimp}
 
-In this section, we will present detailed information about implementation of Modular Multiplication on software. To achieve efficient implementations, we utilize the integer instruction extensions of Intel which was added to new generation processor cores \cite{largeint}. Implementation was done using Intel's x64 assembly, as multiplication operations require efficient carry chain implementations and this is only possible via assembly coding.  
+In this section, we will present detailed information about implementation of Modular Multiplication on software. To achieve efficient implementations, we utilize the integer instruction extensions of Intel architecture added to the new generation processor cores~\cite{largeint}. Implementation was done in Intel x64 assembly code because multiplication operations require efficient carry chain implementations only possible via assembly coding.
 
-Figure \ref{fig:mult} shows only a breakdown of multiplication of large numbers. Each $A_iB$ multiplication needs to be examined more closely, as they are multiplication of a large number with a single word. It should be noted that first diagonal is treated differently than the rest of the diagonals, as the result of the first diagonal does not need to be accumulated but the results of the rest of the diagonals need to be accumulated with the previous results. Figure \ref{fig:diag0} gives detailed explanation of multiplication of the first diagonal of a 512x64 bit multiplication operation.
+Figure \ref{fig:mult} shows only a breakdown of multiplication of large numbers. The $A_iB$ multiplication needs a closer examination in order to describe the multiplication of a large number by one word.
+%
+The algorithm starts off with the first diagonal to compute the first partial product.
+The remaining diagonals add the intermediate products to the previous diagonal's result, essentially accumulating
+partial products into the final result.
+%
+Figure \ref{fig:diag0} depicts the detailed multiplication steps of the first diagonal in a 512x64 bit multiplication.
 
 \begin{figure}[ht]
 \centering
@@ -929,7 +935,9 @@ Figure \ref{fig:mult} shows only a breakdown of multiplication of large numbers.
 \label{fig:diag0}
 \end{figure}
 
-Here, each multiplication is a 64x64 core multiplication and each result is a 128-bit integer. Low 64 bits of each result is stored in rax ad high 64 bits of each result is stored in rdx. A code snippet for the first diagonal is given below.
+What follows below, each multiplication is a 64x64 core multiplication and each result is a 128-bit integer.
+%
+Low 64 bits of each result is stored in \texttt{rax} and high 64 bits of each result is stored in \texttt{rdx}. A code snippet for the first diagonal is given below.
 
 
 \begin{verbatim}
@@ -960,17 +968,19 @@ adc rdx, 0
 mov R7, rdx
 \end{verbatim}
 
-Here, it can be seen that the result C0 is stored in memory, as it will not change after this diagonal is finished. Results C1 through C8 are stored in registers R0 through R7, to avoid load-store operations. $mul$ instruction operates on two 64-bit integers. One of these integers are implicitly stored in register $rax$ and the other is stored in any register that will be given as input to the mul instruction. The output of mul instruction is stored in registers rdx and rax. 
+Here, it can be seen that the result \texttt{C0} is stored in memory, since it doesn't change after this diagonal is completed. Results \texttt{C1} through \texttt{C8} are stored in registers \texttt{R0} through \texttt{R7} to avoid load-store operations. One of the operands of the \texttt{mul} instruction is implicitly stored in register \texttt{rax} and the other operand is stored in any register. The product is stored in registers \texttt{rdx} and \texttt{rax}. 
 \begin{verbatim}
 mul src
 {rdx,rax} = src*rax
 \end{verbatim}
-defines the multiply operation. This instruction has two main flaws: Requires the outputs to be moved to other registers once the multiplication is completed, as the next multiplication will destroy the current result and the mul instruction destroys all of the flags. Intel introduced a new instruction mulx, which operates as follows:
+defines the multiply operation. This instruction has two main flaws: Requires the outputs moved to other registers once the multiplication is completed, as the next multiplication would destroy the current result and the mul instruction destroys all of the flags.
+%
+The new Intel instruction \texttt{mulx} provides relief as follows:
 \begin{verbatim}
 mulx dest_hi, dest_lo, src1
 dest_hi:dest_lo = src1 * rdx.
 \end{verbatim}
-This mulx instruction was introduced to 4th generation Intel cores (formerly known as Haswell) and in addition to being able to define the destination registers, it does not destroy the carry flag, which allows a better code sequence as shown below for the first diagonal of the multiplication.
+The new \texttt{mulx} instruction was introduced in the 4th generation Intel cores (formerly known as Haswell). In addition to explicit destination registers, it does not destroy the carry flag, and allows a better code sequence as shown below for the first diagonal multiplication.
 \begin{verbatim}
 mov rdx , [A + 8*0]
 mulx R0 , rax , [B + 8*0]
@@ -988,7 +998,7 @@ adc R6 , rax
 adc R7 , 0
 \end{verbatim}
 
-After the first diagonal, we have an intermediate result and next results of diagonal multiplication need to be accumulated onto this intermediate result. Figure \ref{fig:diag1} gives detailed explanation of multiplication of the second diagonal of a 512x64 bit multiplication operation. The rest of the diagonals behave exactly the same way.
+After the first diagonal, we have an intermediate result where subsequent partial products in diagonal multiplications are accumulated into. Figure \ref{fig:diag1} gives the second diagonal's multiplication details of a 512x64 bit multiplication. The rest of the diagonals behave exactly the same way.
 
 \begin{figure}[ht]
 \centering
@@ -997,7 +1007,8 @@ After the first diagonal, we have an intermediate result and next results of dia
 \label{fig:diag1}
 \end{figure}
 
-It should be noted that after each multiplication operation, there are three 64-bit numbers to be added: high part of the previous result, low part of the current result and corresponding intermediate result. This is realized with code sequence below. 
+Next, we show how to add three numbers the \texttt{mul} output: 
+high part of the previous result, low part of the current result, and corresponding intermediate result.
 
 \begin{verbatim}
 mov rbp, [A + 8*0]
@@ -1026,13 +1037,16 @@ add R7, rbx
 adc R0, 0
 \end{verbatim}
 
-It can be seen from Figure \ref{fig:diag1} is that there are actually two seperate carry chains. In order to be able to run these two carry chains in parallel, Intel introduced two more instructions: adcx and adox. These instructions are described as follows:
+Figure \ref{fig:diag1} shows two seperate carry chains.
+Not surprisingly, Intel provided relief with two more new instructions: \texttt{adcx} and \texttt{adox} as follows.
 
 \begin{verbatim}
 adcx dest/src1, src2
 adox dest/src1, src2
 \end{verbatim}
-adcx instruction operates exactly same way as adc instruction, but does not alter the overflow flag (OF). adox instruction operates exactly same way as adc instruction, but uses the OF as its carry flag and does not change the carry flag (CF). This allows parallel execution of two seperate carry chains. This is realized with code sequence below. 
+
+The \texttt{adcx} instruction operates exactly same way as the \texttt{adc} instruction, except that it does not alter the overflow flag (OF).
+The \texttt{adox} instruction operates exactly same way as the \texttt{adc} instruction, but uses the OF as its carry flag and does not change the carry flag (CF). This allows parallel execution of two seperate carry chains. This is realized with code sequence below. 
 
 \begin{verbatim}
 xor rax , rax
@@ -1056,7 +1070,9 @@ adox rbx , rax
 mov R7 , rbx
 \end{verbatim}
 
-In this section, we gave detailed explanations of multiplication operations. As noted below, reduction operation behaves exactly same as the multiplication operation and could be realized very efficiently using the same techniques described in this section. For proof of concept, we only gave explanations for the large multiplication operation. 
+This section provides details of large number multiplications with the new instructions.
+The reduction can be implemented very efficiently similar to multiplication using the same techniques
+which we omit for brevity.
 
 \section{Implementation Results}
 \label{sec:res}
@@ -1088,14 +1104,25 @@ In this section, we gave detailed explanations of multiplication operations. As 
 \end{center}
 \end{table*}
 
-We implemented Montgomery Multiplication and Montgomery Reduction using x64 Intel Assembly Language. We utilized instruction extensions targeting public-key acceleration. We ran our codes on 4th generation i7-4770 CPU running on 3.4 GHz and 6th generation i7-6700HQ cPU running on 2.6 GHz for benchmarking. We disabled Turbo Boost for accurate results. Results are shown in Table \ref{table:impres}. We realized 3 different implementations for Montgomery Multiplication of 2 512-bit numbers. First implementation does not utilize any instruction extensions, which we call pre-HSW ISA (Instruction Set Architecture). Second implementation utilizes mulx instruction and third implementation utilizes adcx/adox instructions.
-
-
+We implemented Montgomery Multiplication and Montgomery Reduction using x64 Intel Assembly Language. We employed the aforementioned instruction extensions to accelerate public-key cryptography operations.
+We ran our experiments on a 4th generation i7-4770 CPU clocked at 3.4 GHz, and 6th generation i7-6700HQ CPU running clocked at 2.6 GHz for benchmarking.
+%
+Benchmarking tends to have numerous tricks and tweaks. To reduce the number of variable knobs,
+we disabled Turbo Boost. Results are shown in Table \ref{table:impres}. We have three different implementations for Montgomery Multiplication of two 512-bit numbers. The first implementation does not utilize any instruction extensions, which we call pre-HSW ISA (Instruction Set Architecture). The second and third implementations use \texttt{mulx} and \texttt{adcx/adox} instructions, respectively.
 
 
 \section{Conclusion}
 \label{sec:conc}
-We examined and explained Montgomery Reduction Algoritm and its variations that were designed for efficiency. We implemented Montgomery Multiplication and Montgomery Reduction Algorithms utilizing new instruction set extensions of Intel Core CPUS. From the implementation results and even from the description of the Algorithm, it can be seen that Montgomery approach is a very effective method for realizing efficient modular multiplication operations.
+There are several ways to implement the Montgomery reduction algorithm
+which started with Peter's short but landmark paper.
+We analyzed several of these algorithms for run-time efficiency
+and provided benchmark results for Intel and ARM architectures.
+We caution the reader to dig deeper: there is more than converting algorithm
+descriptions and code snippets to secure cryptographic algorithm implementations,
+e.g., potentially devastating side-channel leakage.
+With that in mind, we close with an observation and relay our experience to conclude
+that Montgomery multiplication is still very effective after three decades,
+and continues to be the algortihm of choice for many cryptographic algorithms on modern platforms.
 
 %\subsection{Results and Conclusions}
 %\label{conclusion}
