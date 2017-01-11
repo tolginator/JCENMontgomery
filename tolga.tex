@@ -85,7 +85,7 @@ Several cornerstone algorithms, such as RSA and Diffie-Hellman, require
 modular exponentiation, which is typically broken into a series of
 modular multiplications.  One of the most interesting advances in
 modular exponentiation has been the introduction of Montgomery
-multiplication. Our focus is squrely on the software engineer designing,
+multiplication. Our focus is squarely on the software engineer designing,
 implementing, testing, shipping, maintaining, improving, and iterating on such algorithms.
 We are interested in two aspects: development of fast and convenient software
 methods, and balanced utilization of hardware features to achieve
@@ -844,15 +844,10 @@ $a\cdot b$.
 \end{verbatim}
 %
 We note that the above four lines compute the most significant three words of
-$t$, i.e., the $(s-1)$st, $s$th, and $(s+1)$st words of $t$. The
+$t$, i.e., the $(s-1)$, $s$, and $(s+1)$ words of $t$. The
 above code completes Step 1 of $\mon(a,b)$. After this, $n$ is
-subtracted from $t$ if $t\geq n$. We illustrate the algorithm in
-Figure~3 for Montgomery multiplication of two four-word numbers.
+subtracted from $t$ if $t\geq n$.
 
-Symbols PC and PS denote the two extra words
-required to obtain the correct $(s+i)$th word.
-Each PC, PS pair is the sum of their respective words connected by
-vertical dashed lines in Figure~3.
 The number of multiplications required in this method is also equal to
 $2s^2+s$. However, the number of additions decreases to $4s^2+4s+2$.
 The number of reads is $6.5s^2+6.5s+2$ and the number of
